@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<canvas id="canvas" width="800" height="600" style="border:1px solid red;"></canvas>
+</body>
+<script src="jquery-2.1.4.js"></script>
+<script>
+    var canvas = document.getElementById("canvas");
+    var ctx = canvas.getContext("2d");
+
+    var colors = (function () {
+        return ( "aliceblue,antiquewhite,aqua,aquamarine,azure,beige,bisque,black,blanchedalmond,blue," +
+        "blueviolet,brown,burlywood,cadetblue,chartreuse,chocolate,coral,cornflowerblue,cornsilk," +
+        "crimson,cyan,darkblue,darkcyan,darkgoldenrod,darkgray,darkgreen,darkgrey,darkkhaki,darkmagenta," +
+        "darkolivegreen,darkorange,darkorchid,darkred,darksalmon,darkseagreen,darkslateblue,darkslategray," +
+        "darkslategrey,darkturquoise,darkviolet,deeppink,deepskyblue,dimgray,dimgrey,dodgerblue,firebrick," +
+        "floralwhite,forestgreen,fuchsia,gainsboro,ghostwhite,gold,goldenrod,gray,green,greenyellow,grey," +
+        "honeydew,hotpink,indianred,indigo,ivory,khaki,lavender,lavenderblush,lawngreen,lemonchiffon," +
+        "lightblue,lightcoral,lightcyan,lightgoldenrodyellow,lightgray,lightgreen,lightgrey,lightpink," +
+        "lightsalmon,lightseagreen,lightskyblue,lightslategray,lightslategrey,lightsteelblue,lightyellow," +
+        "lime,limegreen,linen,magenta,maroon,mediumaquamarine,mediumblue,mediumorchid,mediumpurple," +
+        "mediumseagreen,mediumslateblue,mediumspringgreen,mediumturquoise,mediumvioletred,midnightblue," +
+        "mintcream,mistyrose,moccasin,navajowhite,navy,oldlace,olive,olivedrab,orange,orangered,orchid," +
+        "palegoldenrod,palegreen,paleturquoise,palevioletred,papayawhip,peachpuff,peru,pink,plum,powderblue," +
+        "purple,rebeccapurple,red,rosybrown,royalblue,saddlebrown,salmon,sandybrown,seagreen,seashell,sienna," +
+        "silver,skyblue,slateblue,slategray,slategrey,snow,springgreen,steelblue,tan,teal,thistle,transparent," +
+        "tomato,turquoise,violet,wheat,white,whitesmoke,yellow,yellowgreen" ).split(',');
+    })();
+
+    //1、对象：饼图
+    //2、分析对象的属性和方法
+    //3、如何创建对象-->构造函数和原型
+
+    var pie=(function(){
+        function Pie(opt){
+
+            if(!opt) throw new Error("参数不能为空");
+
+            var requires="data,x,y".split(",");
+            requires.forEach(function(v){
+                //判断opt对象中有没有该属性
+                if(!opt[v])  throw new Error("该参数必填");
+            });
+
+            var defaultOpt={
+                radius:150,
+                beginRadian:-0.5*Math.PI
+            };
+
+
+//            $.extend(this,defaultOpt);
+//            $.extend(this,opt);
+
+            //上面两行代码等同于：
+            $.extend(this,defaultOpt,opt);
+
+            this.init();
+        }
+
+        Pie.prototype={
+            constructor:Pie,
+
+            //初始化方法
+            init:function(){
+                var sum=this.getSum();
+
+                this.calcRate(sum);
+
+                this.calcRadian();
+
+                this.drawSectors();
+
+                this.drawText();
+
+            },
+
+            //1、计算数据的总和
+            getSum:function(){
+                var sum=0;
+                this.data.forEach(function(v){
+                    sum+=v;
+                });
+
+                return sum;         //返回值的目的是为了让后面的方法可以访问到sum的值
+            },
+            //2、计算每一个数据占据的比例
+            calcRate:function(sum){
+                var dataRate=this.data.map(function(v){
+                    var rate=v/sum;//比例
+
+                    return {
+                        rate:rate,//rate属性保存了数据的比例
+                        data:v      //data属性保存了数据的原始值
+                    };
+                });
+
+                this.dataRate=dataRate;
+
+            },
+            //3、根据每一个数据占据的比例，计算出每一个数据对应扇形的弧度差
+            calcRadian:function(){
+                this.dataRate.map(function(v){
+                    //v:{rate:...,data:...}
+
+                    v.radian=2*Math.PI*v.rate;      //整个圆的弧度值*该扇形占据的比例=该扇形的弧度差
+                });
+
+            },
+
+            //4、定义第一个扇形的起始弧度，并根据每一个扇形的弧度差把每一个扇形绘制出来
+            drawSectors:function(){
+                this.dataRate.forEach(function(v,i){
+                    //v:{rate:...,data:...,radian:...}
+
+
+                    var start=this.beginRadian;
+                    var end=this.beginRadian+v.radian;
+
+                    ctx.beginPath();
+                    ctx.moveTo(this.x,this.y);
+                    ctx.arc(this.x,this.y,this.radius,start,end);
+
+                    ctx.fillStyle=colors[i+15];
+                    ctx.fill();
+
+
+                    //为了方便的计算出后续扇形的起始弧度和结束弧度，所以每一次计算完毕之后，将该扇形的结束弧度设置为beginRadian的值
+
+                    this.beginRadian=end;
+                },this);
+            },
+
+            drawText:function(){
+
+                ctx.fillStyle="black";
+                ctx.font="20px 微软雅黑";
+                ctx.textAlign="center";
+                ctx.textBaseline="middle";
+
+                //1、解决扇形中心点弧度值=起始弧度+弧度差/2
+                this.dataRate.forEach(function(v,i){
+                    //v:{rate:...,data:...,radian:...}
+
+
+                    var start=this.beginRadian;
+                    var end=this.beginRadian+v.radian;
+
+                    //中心点的弧度值
+                    var radian=start+v.radian/2;
+
+                    //2、根据图形做出辅助线计算直角三角形的底和高
+                    //  sin radian=h/radius;
+                    //  cos radian=b/radius;
+
+                    var h=this.radius * Math.sin(radian)/2;
+                    var b=this.radius * Math.cos(radian)/2;
+
+                    //3、根据直角三角形的底和高，根据大圆的圆心坐标==>扇形中心点的坐标(文字的参考坐标)
+                    var x=this.x+b;
+                    var y=this.y+h;
+
+                    //4、根据坐标绘制文字
+                    ctx.fillText(v.data,x,y);
+
+                    this.beginRadian=end;
+                },this);
+            }
+
+        };
+
+
+        return function(opt){
+            return new Pie(opt);
+        };
+    })()
+
+    var $1=pie({
+        data:[1,3,5,7,8,10],
+        x:400,
+        y:300,
+        radius:150,
+        beginRadian:-0.5*Math.PI
+    });
+
+
+</script>
+</html>
